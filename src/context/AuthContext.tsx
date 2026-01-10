@@ -99,6 +99,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return true;
     };
 
+    const logout = () => {
+        setUser(null);
+        toast.info('Logged out successfully');
+    };
+
     return (
         <AuthContext.Provider
             value={{
