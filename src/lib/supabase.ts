@@ -9,4 +9,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Missing Supabase Environment Variables. Please check .env file.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Fallback to prevent app crash if env vars are missing (common in new Vercel deploys)
+const fallbackUrl = 'https://placeholder.supabase.co';
+const fallbackKey = 'placeholder';
+
+export const supabase = createClient(
+    supabaseUrl || fallbackUrl,
+    supabaseAnonKey || fallbackKey
+);
