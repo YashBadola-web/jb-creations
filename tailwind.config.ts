@@ -69,6 +69,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Brand Palette
+        "royal-blue": "#405DE6",
+        "royal-purple": "#833AB4",
+        "red-violet": "#C13584",
+        "cerise-red": "#E1306C",
+        "torch-red": "#FD1D1D",
+        "flamingo": "#F56040",
+        "yellow-orange": "#FCAF45",
+        "yellow-gold": "#FFDC80",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -12,6 +12,7 @@ const PaymentsTab: React.FC = () => {
   const { toast } = useToast();
   const [upiId, setUpiId] = useState(adminSettings.payment.upiId);
   const [qrCode, setQrCode] = useState<string | null>(adminSettings.payment.upiQrCode);
+  const [rzpKey, setRzpKey] = useState(adminSettings.payment.razorpayKeyId || '');
 
   const handleQRUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -23,7 +24,14 @@ const PaymentsTab: React.FC = () => {
   };
 
   const handleSave = () => {
-    updateAdminSettings({ payment: { ...adminSettings.payment, upiId, upiQrCode: qrCode } });
+    updateAdminSettings({
+      payment: {
+        ...adminSettings.payment,
+        upiId,
+        upiQrCode: qrCode,
+        razorpayKeyId: rzpKey
+      }
+    });
     toast({ title: 'Payment settings updated!', description: 'Changes are now live on checkout.' });
   };
 
@@ -53,14 +61,26 @@ const PaymentsTab: React.FC = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-          <Label htmlFor="razorpay">Enable Razorpay</Label>
-          <Switch id="razorpay" checked={adminSettings.payment.razorpayEnabled} onCheckedChange={(checked) => updateAdminSettings({ payment: { ...adminSettings.payment, razorpayEnabled: checked } })} />
+        <div className="space-y-4 p-4 border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="razorpay">Enable Razorpay</Label>
+            <Switch id="razorpay" checked={adminSettings.payment.razorpayEnabled} onCheckedChange={(checked) => updateAdminSettings({ payment: { ...adminSettings.payment, razorpayEnabled: checked } })} />
+          </div>
+          {adminSettings.payment.razorpayEnabled && (
+            <div>
+              <Label htmlFor="rzpKey">Razorpay Key ID (Test/Live)</Label>
+              <Input
+                id="rzpKey"
+                value={rzpKey}
+                onChange={(e) => setRzpKey(e.target.value)}
+                placeholder="rzp_test_..."
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Found in Razorpay Dashboard &gt; Settings &gt; API Keys</p>
+            </div>
+          )}
         </div>
-        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-          <Label htmlFor="cod">Enable Cash on Delivery</Label>
-          <Switch id="cod" checked={adminSettings.payment.codEnabled} onCheckedChange={(checked) => updateAdminSettings({ payment: { ...adminSettings.payment, codEnabled: checked } })} />
-        </div>
+
         <Button onClick={handleSave} className="w-full">Save Settings</Button>
       </div>
     </div>

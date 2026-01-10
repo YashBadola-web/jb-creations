@@ -6,17 +6,21 @@ export interface Product {
   description: string;
   priceInPaise: number; // Store in paise for precision (₹199.00 = 19900)
   displayPrice: string; // Formatted price string "₹199.00"
-  category: 'resin' | 'kids' | 'decor';
+  category: string;
+  subcategory?: string; // Optional sub-category ID
   images: string[];
   stock: number;
   featured: boolean;
+  costPriceInPaise: number; // Cost of Goods Sold (COGS) in paise
   createdAt: string;
   updatedAt: string;
+  sales?: number; // Total units sold (optional for backward compatibility or future use)
 }
 
 export interface CartItem {
   product: Product;
   quantity: number;
+  customText?: string; // For customized items
 }
 
 export interface Order {
@@ -26,7 +30,8 @@ export interface Order {
   displayTotal: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   paymentMethod: 'upi' | 'razorpay' | 'cod';
-  paymentStatus: 'pending' | 'completed' | 'failed';
+  paymentStatus: 'created' | 'pending' | 'completed' | 'failed' | 'paid'; // Added 'created' and 'paid'
+  transactionId?: string; // New field
   customerInfo: CustomerInfo;
   createdAt: string;
   updatedAt: string;
@@ -42,15 +47,28 @@ export interface CustomerInfo {
   pincode: string;
 }
 
+export interface Coupon {
+  code: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  isActive: boolean;
+}
+
 export interface PaymentSettings {
   upiId: string;
   upiQrCode: string | null; // Base64 or URL
   razorpayEnabled: boolean;
+  razorpayKeyId?: string; // Optional Key ID
   codEnabled: boolean;
+}
+
+export interface MarketingSettings {
+  whatsappGroupUrl?: string;
 }
 
 export interface AdminSettings {
   payment: PaymentSettings;
+  marketing: MarketingSettings;
 }
 
 export const formatPriceINR = (paise: number): string => {

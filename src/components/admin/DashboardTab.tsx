@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Package, ShoppingCart, TrendingUp, IndianRupee } from 'lucide-react';
+import { Package, ShoppingCart, TrendingUp, IndianRupee, CheckCircle2 } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
 import { formatPriceINR } from '@/types';
 
@@ -9,6 +9,7 @@ const DashboardTab: React.FC = () => {
 
   const totalRevenue = orders.reduce((sum, order) => sum + order.totalInPaise, 0);
   const pendingOrders = orders.filter((o) => o.status === 'pending').length;
+  const confirmedOrders = orders.filter((o) => o.status === 'confirmed').length;
   const completedOrders = orders.filter((o) => o.status === 'delivered').length;
   const lowStockProducts = products.filter((p) => p.stock < 5).length;
 
@@ -20,19 +21,19 @@ const DashboardTab: React.FC = () => {
       color: 'bg-primary/10 text-primary',
     },
     {
-      label: 'Total Products',
-      value: products.length.toString(),
-      icon: Package,
-      color: 'bg-secondary/20 text-sage-dark',
-    },
-    {
-      label: 'Pending Orders',
+      label: 'Pending',
       value: pendingOrders.toString(),
       icon: ShoppingCart,
       color: 'bg-amber-100 text-amber-700',
     },
     {
-      label: 'Completed Orders',
+      label: 'Confirmed',
+      value: confirmedOrders.toString(),
+      icon: CheckCircle2,
+      color: 'bg-blue-100 text-blue-700',
+    },
+    {
+      label: 'Completed',
       value: completedOrders.toString(),
       icon: TrendingUp,
       color: 'bg-green-100 text-green-700',
@@ -99,17 +100,16 @@ const DashboardTab: React.FC = () => {
                   </p>
                 </div>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                    order.status === 'pending'
-                      ? 'bg-amber-100 text-amber-700'
-                      : order.status === 'confirmed'
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium ${order.status === 'pending'
+                    ? 'bg-amber-100 text-amber-700'
+                    : order.status === 'confirmed'
                       ? 'bg-blue-100 text-blue-700'
                       : order.status === 'shipped'
-                      ? 'bg-purple-100 text-purple-700'
-                      : order.status === 'delivered'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
+                        ? 'bg-purple-100 text-purple-700'
+                        : order.status === 'delivered'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                    }`}
                 >
                   {order.status}
                 </span>

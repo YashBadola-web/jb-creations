@@ -13,8 +13,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { CATEGORY_HIERARCHY, getCategoryLabel, getMainCategory } from '@/data/categories';
 
 const ProductsTab: React.FC = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useStore();
@@ -25,7 +28,9 @@ const ProductsTab: React.FC = () => {
     name: '',
     description: '',
     price: '',
-    category: 'resin' as Product['category'],
+    costPrice: '',
+    category: 'resin' as string,
+    subcategory: '' as string,
     stock: '',
     imageUrl: '',
     featured: false,
@@ -36,7 +41,9 @@ const ProductsTab: React.FC = () => {
       name: '',
       description: '',
       price: '',
+      costPrice: '',
       category: 'resin',
+      subcategory: '',
       stock: '',
       imageUrl: '',
       featured: false,
@@ -51,7 +58,9 @@ const ProductsTab: React.FC = () => {
       name: product.name,
       description: product.description,
       price: (product.priceInPaise / 100).toString(),
+      costPrice: product.costPriceInPaise ? (product.costPriceInPaise / 100).toString() : '',
       category: product.category,
+      subcategory: product.subcategory || '',
       stock: product.stock.toString(),
       imageUrl: product.images[0] || '',
       featured: product.featured,
@@ -59,35 +68,36 @@ const ProductsTab: React.FC = () => {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const priceInPaise = parsePriceToINR(parseFloat(formData.price));
+    const costPriceInPaise = formData.costPrice ? parsePriceToINR(parseFloat(formData.costPrice)) : 0;
+
     const productData = {
       name: formData.name,
       description: formData.description,
       priceInPaise,
+      costPriceInPaise,
       category: formData.category,
+      subcategory: formData.subcategory || undefined,
       stock: parseInt(formData.stock),
       images: [formData.imageUrl],
       featured: formData.featured,
     };
 
     if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
-      toast({ title: 'Product updated successfully' });
+      await updateProduct(editingProduct.id, productData);
     } else {
-      addProduct(productData);
-      toast({ title: 'Product added successfully' });
+      await addProduct(productData);
     }
 
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this product?')) {
-      deleteProduct(id);
-      toast({ title: 'Product deleted' });
+      await deleteProduct(id);
     }
   };
 
@@ -152,9 +162,9 @@ const ProductsTab: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="price">Price (₹)</Label>
+                    <Label htmlFor="price">Selling Price (₹)</Label>
                     <Input
                       id="price"
                       type="number"
@@ -163,6 +173,18 @@ const ProductsTab: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                       required
                       className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="costPrice">Cost Price (₹)</Label>
+                    <Input
+                      id="costPrice"
+                      type="number"
+                      step="0.01"
+                      value={formData.costPrice}
+                      onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                      className="mt-1"
+                      placeholder="Optional"
                     />
                   </div>
                   <div>
@@ -181,32 +203,130 @@ const ProductsTab: React.FC = () => {
                 <div>
                   <Label htmlFor="category">Category</Label>
                   <Select
-                    value={formData.category}
-                    onValueChange={(value: Product['category']) =>
-                      setFormData({ ...formData, category: value })
-                    }
+                    value={formData.subcategory || formData.category}
+                    onValueChange={(value) => {
+                      const main = getMainCategory(value);
+                      if (main && main.id !== value) {
+                        // It's a subcategory
+                        setFormData({ ...formData, category: main.id, subcategory: value });
+                      } else {
+                        // It's a main category (standalone)
+                        setFormData({ ...formData, category: value, subcategory: '' });
+                      }
+                    }}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="resin">Resin Art</SelectItem>
-                      <SelectItem value="kids">Kids Toys</SelectItem>
-                      <SelectItem value="decor">Home Decor</SelectItem>
+                      {CATEGORY_HIERARCHY.map((main) => (
+                        <SelectGroup key={main.id}>
+                          <SelectLabel>{main.label}</SelectLabel>
+                          {main.isStandalone ? (
+                            <SelectItem value={main.id}>{main.label}</SelectItem>
+                          ) : (
+                            main.subCategories.map((sub) => (
+                              <SelectItem key={sub.id} value={sub.id}>
+                                {sub.label}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectGroup>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input
-                    id="imageUrl"
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    required
-                    className="mt-1"
-                    placeholder="https://..."
-                  />
+                  <Label htmlFor="imageUrl">Product Image</Label>
+                  <div className="mt-2 space-y-4">
+                    {/* Image Preview */}
+                    {formData.imageUrl && (
+                      <div className="relative w-full h-48 bg-muted rounded-lg overflow-hidden border border-border">
+                        <img
+                          src={formData.imageUrl}
+                          alt="Preview"
+                          className="w-full h-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                          className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Drag & Drop Area */}
+                    {!formData.imageUrl && (
+                      <div
+                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file && file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (event.target?.result) {
+                                setFormData({ ...formData, imageUrl: event.target.result as string });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <Plus className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground font-medium">
+                            Click to upload or drag & drop
+                          </p>
+                          <p className="text-xs text-muted-foreground/70">
+                            SVG, PNG, JPG or GIF (max. 800x400px)
+                          </p>
+                        </div>
+                        <input
+                          id="file-upload"
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                if (event.target?.result) {
+                                  setFormData({ ...formData, imageUrl: event.target.result as string });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Fallback URL Input */}
+                    <div className="flex items-center gap-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs text-muted-foreground">OR ENTER URL</span>
+                      <div className="h-px bg-border flex-1" />
+                    </div>
+
+                    <Input
+                      id="imageUrl"
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                      className="mt-1"
+                      placeholder="https://..."
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -249,7 +369,10 @@ const ProductsTab: React.FC = () => {
                   Category
                 </th>
                 <th className="text-left text-sm font-medium text-muted-foreground px-4 py-3">
-                  Price
+                  Selling Price
+                </th>
+                <th className="text-left text-sm font-medium text-muted-foreground px-4 py-3">
+                  Cost Price
                 </th>
                 <th className="text-left text-sm font-medium text-muted-foreground px-4 py-3">
                   Stock
@@ -281,17 +404,21 @@ const ProductsTab: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-muted-foreground capitalize">
-                      {product.category}
+                      {product.subcategory ? getCategoryLabel(product.subcategory) : getCategoryLabel(product.category)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-foreground">{product.displayPrice}</span>
                   </td>
                   <td className="px-4 py-3">
+                    <span className="text-sm text-muted-foreground">
+                      {product.costPriceInPaise ? formatPriceINR(product.costPriceInPaise) : '-'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
                     <span
-                      className={`text-sm ${
-                        product.stock < 5 ? 'text-destructive font-medium' : 'text-foreground'
-                      }`}
+                      className={`text-sm ${product.stock < 5 ? 'text-destructive font-medium' : 'text-foreground'
+                        }`}
                     >
                       {product.stock}
                     </span>

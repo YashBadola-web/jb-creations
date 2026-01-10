@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, ShoppingBag, Heart } from 'lucide-react';
@@ -7,12 +7,19 @@ import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import ProductGrid from '@/components/products/ProductGrid';
 import { useToast } from '@/hooks/use-toast';
+import SEO from '@/components/common/SEO';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { products, addToCart } = useStore();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+  const [customText, setCustomText] = useState('');
+
+  // Scroll to top when product ID changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
 
   const product = products.find((p) => p.id === id);
   const relatedProducts = products
@@ -35,16 +42,40 @@ const ProductDetail: React.FC = () => {
     );
   }
 
+  const isCustomizable = product.category === 'customised_items' ||
+    product.category === 'custom_mdf' ||
+    product.category === 'custom_quotes' ||
+    product.category === 'custom_stickers' ||
+    product.category === 'resin_stickers' ||
+    product.subcategory === 'custom_mdf' ||
+    product.subcategory === 'custom_quotes' ||
+    product.subcategory === 'custom_stickers' ||
+    product.subcategory === 'resin_stickers';
+
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    if (isCustomizable && !customText.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Customization Required",
+        description: "Please enter your custom text/name.",
+      });
+      return;
+    }
+    addToCart(product, quantity, customText);
     toast({
       title: 'Added to cart',
       description: `${quantity}x ${product.name} has been added to your cart.`,
     });
+    setCustomText('');
   };
 
   return (
     <Layout>
+      <SEO
+        title={product.name}
+        description={product.description}
+        type="product"
+      />
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <Link
@@ -90,6 +121,21 @@ const ProductDetail: React.FC = () => {
             <p className="text-muted-foreground leading-relaxed mb-8">
               {product.description}
             </p>
+
+            {/* Customization Input */}
+            {isCustomizable && (
+              <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border">
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Personalization Required:
+                </label>
+                <textarea
+                  className="w-full p-2 rounded-md border border-input bg-background text-sm min-h-[80px]"
+                  placeholder="Enter custom text, names, or quotes here..."
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                />
+              </div>
+            )}
 
             {/* Stock Status */}
             <div className="mb-6">

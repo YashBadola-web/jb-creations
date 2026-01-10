@@ -11,13 +11,7 @@ const categories = [
     image: 'https://images.unsplash.com/photo-1620783770629-122b7f187703?w=600',
     color: 'from-blue-100/50 to-cyan-50/50',
   },
-  {
-    id: 'kids',
-    title: 'Kids Collection',
-    description: 'Handcrafted wooden toys designed to spark imagination and provide safe, sustainable play.',
-    image: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=600',
-    color: 'from-amber-100/50 to-yellow-50/50',
-  },
+
   {
     id: 'decor',
     title: 'Home Decor',

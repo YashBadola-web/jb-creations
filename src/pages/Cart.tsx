@@ -5,6 +5,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
+import { getCategoryLabel } from '@/data/categories';
 
 const Cart: React.FC = () => {
   const { cart, updateCartQuantity, removeFromCart, getCartTotal } = useStore();
@@ -72,9 +73,14 @@ const Cart: React.FC = () => {
                       {item.product.name}
                     </h3>
                   </Link>
-                  <p className="text-sm text-muted-foreground capitalize mb-2">
-                    {item.product.category}
+                  <p className="text-sm text-muted-foreground capitalize mb-1">
+                    {getCategoryLabel(item.product.category)}
                   </p>
+                  {item.customText && (
+                    <p className="text-xs text-primary italic mb-2">
+                      " {item.customText} "
+                    </p>
+                  )}
                   <p className="font-display text-lg text-foreground">
                     {item.product.displayPrice}
                   </p>
@@ -84,7 +90,7 @@ const Cart: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => removeFromCart(item.product.id)}
+                    onClick={() => removeFromCart(item.product.id, item.customText)}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -94,7 +100,7 @@ const Cart: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1, item.customText)}
                       className="h-8 w-8"
                     >
                       <Minus className="h-3 w-3" />
@@ -105,7 +111,7 @@ const Cart: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1, item.customText)}
                       disabled={item.quantity >= item.product.stock}
                       className="h-8 w-8"
                     >
