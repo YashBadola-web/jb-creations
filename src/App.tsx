@@ -26,9 +26,6 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '50px', background: 'red', color: 'white', zIndex: 10000, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
-      ⚠️ SYSTEM UPDATE CHECK: IF YOU SEE THIS, REFRESH SUCCESSFUL ⚠️
-    </div>
     <AuthProvider>
       <StoreProvider>
         <TooltipProvider>

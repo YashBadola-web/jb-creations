@@ -52,7 +52,7 @@ const CategoryShowcase: React.FC = () => {
               transition={{ duration: 0.6, delay: index * 0.15 }}
             >
               <Link
-                to={`/category/${category.id}`}
+                to={`/shop?category=${category.id}`}
                 className="group block relative overflow-hidden rounded-2xl bg-background"
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${category.color}`} />
