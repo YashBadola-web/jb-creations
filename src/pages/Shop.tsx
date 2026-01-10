@@ -14,7 +14,30 @@ const Shop: React.FC = () => {
     const lower = cat.toLowerCase().trim();
     if (lower === 'resin' || lower === 'resin art' || lower === 'resin works') return 'resin_materials';
     if (lower === 'decor' || lower === 'home decor' || lower === 'kids') return 'home_decor';
-    return cat;
+    return cat; // Return as-is if no overwrite needed (e.g. 'candle_making')
+  };
+
+  // Helper to normalize subcategories by trying to match IDs or Labels from hierarchy
+  const normalizeSubcategory = (sub: string | undefined): string => {
+    if (!sub) return '';
+    const lower = sub.toLowerCase().trim();
+
+    // Direct Hierarchy Lookup (Reverse Search)
+    // We want to find if 'sub' matches any known subcategory ID or Label in our data
+    // import { CATEGORY_HIERARCHY } from '@/data/categories' is needed but expensive to iterate every time? 
+    // Data is small enough.
+
+    // Hardcoded common mappings for robustness
+    if (lower.includes('color') || lower.includes('pigment')) return 'resin_color';
+    if (lower.includes('mould') || lower.includes('mold')) return 'resin_moulds';
+    if (lower.includes('flower') || lower.includes('dry')) return 'resin_dry_flower';
+    if (lower.includes('essential') && lower.includes('resin')) return 'resin_essentials';
+    if (lower.includes('sticker')) return 'resin_stickers';
+    if (lower.includes('wax')) return 'candle_wax';
+    if (lower.includes('fragrance') || lower.includes('scent')) return 'candle_fragrance';
+    if (lower.includes('wick')) return 'candle_wicks';
+
+    return sub;
   };
 
   const { category: paramCategory } = useParams<{ category?: string }>();
@@ -51,13 +74,20 @@ const Shop: React.FC = () => {
       ? products
       : products.filter((p) => {
         const productCategory = normalizeCategory(p.category);
-        const productSubcategory = p.subcategory ? p.subcategory : '';
+        const productSubcategory = normalizeSubcategory(p.subcategory);
+
+        // Debugging Log (Temporary)
+        // console.log(`Checking ${p.name}: Cat('${p.category}'->'${productCategory}') Sub('${p.subcategory}'->'${productSubcategory}') vs Selected('${selectedCategory}')`);
 
         // Check exact match on category (normalized)
         if (productCategory === selectedCategory) return true;
 
-        // Check exact match on subcategory (raw or normalized potentially if needed, but keeping raw for ID match)
+        // Check exact match on subcategory (normalized)
         if (productSubcategory === selectedCategory) return true;
+
+        // Check if the selected category is actually the subcategory ID that matches
+        // e.g. User selected 'resin_color', product has subcategory 'resin_color'
+        if (p.subcategory === selectedCategory) return true;
 
         return false;
       });
