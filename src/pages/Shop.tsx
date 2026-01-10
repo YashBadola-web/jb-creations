@@ -106,8 +106,8 @@ const Shop: React.FC = () => {
       />
 
       {/* TEMP DEBUGGER */}
-      <div className="bg-yellow-100 p-2 text-xs font-mono text-center">
-        DEBUG: Selected="{selectedCategory}" | Total={products.length} | Filtered={filteredProducts.length}
+      <div className="fixed top-20 left-0 w-full z-[9999] bg-yellow-400 border-b border-black text-black font-bold p-4 text-sm font-mono text-center shadow-lg">
+        DEBUG MODE ACTIVE: Selected="{selectedCategory}" | Total Products={products.length} | Filtered={filteredProducts.length}
       </div>
 
       <div className="container mx-auto px-4 py-8">
