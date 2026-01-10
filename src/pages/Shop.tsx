@@ -77,7 +77,7 @@ const Shop: React.FC = () => {
         const productSubcategory = normalizeSubcategory(p.subcategory);
 
         // Debugging Log (Temporary)
-        // console.log(`Checking ${p.name}: Cat('${p.category}'->'${productCategory}') Sub('${p.subcategory}'->'${productSubcategory}') vs Selected('${selectedCategory}')`);
+        console.log(`Checking ${p.name}: Cat('${p.category}'->'${productCategory}') Sub('${p.subcategory}'->'${productSubcategory}') vs Selected('${selectedCategory}')`);
 
         // Check exact match on category (normalized)
         if (productCategory === selectedCategory) return true;
@@ -104,6 +104,12 @@ const Shop: React.FC = () => {
         title={pageTitle}
         description={pageDescription}
       />
+
+      {/* TEMP DEBUGGER */}
+      <div className="bg-yellow-100 p-2 text-xs font-mono text-center">
+        DEBUG: Selected="{selectedCategory}" | Total={products.length} | Filtered={filteredProducts.length}
+      </div>
+
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-4">
           <h1 className="font-display text-3xl md:text-4xl font-semibold text-foreground mb-3">
