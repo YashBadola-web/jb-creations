@@ -12,10 +12,43 @@ const Index: React.FC = () => {
 
   const featuredProducts = products.filter((p) => p.featured);
 
+  // Normalize helper (duplicated from Shop.tsx for now to ensure consistency)
+  const normalizeCategory = (cat: string | undefined): string => {
+    if (!cat) return '';
+    const lower = cat.toLowerCase().trim();
+    if (lower === 'resin' || lower === 'resin art' || lower === 'resin works') return 'resin_materials';
+    if (lower === 'decor' || lower === 'home decor' || lower === 'kids') return 'home_decor';
+    return cat;
+  };
+
+  // Helper to normalize subcategories
+  const normalizeSubcategory = (sub: string | undefined): string => {
+    if (!sub) return '';
+    const lower = sub.toLowerCase().trim();
+    if (lower.includes('color') || lower.includes('pigment')) return 'resin_color';
+    if (lower.includes('mould') || lower.includes('mold')) return 'resin_moulds';
+    if (lower.includes('flower') || lower.includes('dry')) return 'resin_dry_flower';
+    if (lower.includes('essential') && lower.includes('resin')) return 'resin_essentials';
+    if (lower.includes('sticker')) return 'resin_stickers';
+    if (lower.includes('wax')) return 'candle_wax';
+    if (lower.includes('fragrance') || lower.includes('scent')) return 'candle_fragrance';
+    if (lower.includes('wick')) return 'candle_wicks';
+    return sub;
+  };
+
   const filteredProducts =
     selectedCategory === 'all'
       ? products
-      : products.filter((p) => p.category === selectedCategory);
+      : products.filter((p) => {
+        const productCategory = normalizeCategory(p.category);
+        const productSubcategory = normalizeSubcategory(p.subcategory);
+
+        if (productCategory === selectedCategory) return true;
+        if (productSubcategory === selectedCategory) return true;
+        if (p.subcategory === selectedCategory) return true;
+
+        return false;
+      });
 
   return (
     <Layout>

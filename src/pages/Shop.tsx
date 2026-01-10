@@ -105,11 +105,6 @@ const Shop: React.FC = () => {
         description={pageDescription}
       />
 
-      {/* TEMP DEBUGGER */}
-      <div className="fixed top-20 left-0 w-full z-[9999] bg-yellow-400 border-b border-black text-black font-bold p-4 text-sm font-mono text-center shadow-lg">
-        DEBUG MODE ACTIVE: Selected="{selectedCategory}" | Total Products={products.length} | Filtered={filteredProducts.length}
-      </div>
-
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-4">
           <h1 className="font-display text-3xl md:text-4xl font-semibold text-foreground mb-3">
