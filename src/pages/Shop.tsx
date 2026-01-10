@@ -8,6 +8,15 @@ import { getCategoryLabel } from '@/data/categories';
 import SEO from '@/components/common/SEO';
 
 const Shop: React.FC = () => {
+  // Normalize legacy categories to new hierarchy
+  const normalizeCategory = (cat: string | undefined): string => {
+    if (!cat) return '';
+    const lower = cat.toLowerCase().trim();
+    if (lower === 'resin' || lower === 'resin art' || lower === 'resin works') return 'resin_materials';
+    if (lower === 'decor' || lower === 'home decor' || lower === 'kids') return 'home_decor';
+    return cat;
+  };
+
   const { category: paramCategory } = useParams<{ category?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchCategory = searchParams.get('category');
@@ -15,13 +24,16 @@ const Shop: React.FC = () => {
   const { products } = useStore();
 
   // Prioritize search param, then path param, then 'all'
-  const initialCategory = searchCategory || paramCategory || 'all';
+  // Normalize the input category to ensure it matches current hierarchy
+  const rawCategory = searchCategory || paramCategory || 'all';
+  const initialCategory = rawCategory === 'all' ? 'all' : normalizeCategory(rawCategory);
+
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
 
   // Sync state with URL changes
   useEffect(() => {
     const current = searchCategory || paramCategory || 'all';
-    setSelectedCategory(current);
+    setSelectedCategory(current === 'all' ? 'all' : normalizeCategory(current));
   }, [searchCategory, paramCategory]);
 
   const handleCategoryChange = (category: string) => {
@@ -37,7 +49,18 @@ const Shop: React.FC = () => {
   const filteredProducts =
     selectedCategory === 'all'
       ? products
-      : products.filter((p) => p.category === selectedCategory || p.subcategory === selectedCategory);
+      : products.filter((p) => {
+        const productCategory = normalizeCategory(p.category);
+        const productSubcategory = p.subcategory ? p.subcategory : '';
+
+        // Check exact match on category (normalized)
+        if (productCategory === selectedCategory) return true;
+
+        // Check exact match on subcategory (raw or normalized potentially if needed, but keeping raw for ID match)
+        if (productSubcategory === selectedCategory) return true;
+
+        return false;
+      });
 
   // Dynamic titles based on category ID
   const pageTitle = selectedCategory === 'all' ? 'All Products' : getCategoryLabel(selectedCategory);

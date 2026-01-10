@@ -5,19 +5,27 @@ import { ArrowRight } from 'lucide-react';
 
 const categories = [
   {
-    id: 'resin',
-    title: 'Resin Art',
-    description: 'Mesmerizing ocean waves, geode patterns, and botanical beauty captured in crystal-clear resin.',
-    image: 'https://images.unsplash.com/photo-1620783770629-122b7f187703?w=600',
+    id: 'resin_materials',
+    title: 'Resin Art Supplies',
+    description: 'High-quality resin, moulds, pigments, and tools for your creative masterpieces.',
+    image: 'https://images.unsplash.com/photo-1595079676339-1534801fafde?w=600',
     color: 'from-blue-100/50 to-cyan-50/50',
   },
 
   {
-    id: 'decor',
+    id: 'home_decor',
     title: 'Home Decor',
     description: 'Statement pieces that transform your space with artisanal charm and handmade character.',
     image: 'https://images.unsplash.com/photo-1522758971460-1d21eed7dc1d?w=600',
     color: 'from-sage/20 to-green-50/50',
+  },
+
+  {
+    id: 'candle_making',
+    title: 'Candle Making',
+    description: 'Premium soy wax, fragrances, and wicks for crafting the perfect scented candles.',
+    image: 'https://images.unsplash.com/photo-1603006905003-be475563bc59?w=600',
+    color: 'from-amber-100/50 to-orange-50/50',
   },
 ];
 
