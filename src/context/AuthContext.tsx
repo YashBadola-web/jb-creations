@@ -14,6 +14,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isAdmin: boolean;
     login: (email: string, password: string) => boolean;
+    register: (email: string, password: string) => boolean;
     logout: () => void;
 }
 
@@ -74,23 +75,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return false;
             }
         } else {
-            // New user, auto-register
-            if (password.length < 6) {
-                toast.error('Password must be at least 6 characters');
-                return false;
-            }
-
-            setUsersDb(prev => ({ ...prev, [email]: password }));
-            const newUser: User = { email, role: 'user', name: email.split('@')[0] };
-            setUser(newUser);
-            toast.success(`Account created! Welcome, ${newUser.name}!`);
-            return true;
+            // User does not exist
+            toast.error('No account found with this email. Please register first.');
+            return false;
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        toast.info('Logged out successfully');
+    const register = (email: string, password: string): boolean => {
+        if (usersDb[email]) {
+            toast.error('Account already exists. Please login.');
+            return false;
+        }
+
+        if (password.length < 6) {
+            toast.error('Password must be at least 6 characters');
+            return false;
+        }
+
+        setUsersDb(prev => ({ ...prev, [email]: password }));
+        const newUser: User = { email, role: 'user', name: email.split('@')[0] };
+        setUser(newUser);
+        toast.success(`Account created! Welcome, ${newUser.name}!`);
+        return true;
     };
 
     return (
@@ -100,6 +106,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 isAuthenticated: !!user,
                 isAdmin: user?.role === 'admin',
                 login,
+                register,
                 logout,
             }}
         >

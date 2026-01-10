@@ -26,7 +26,7 @@ const Login = () => {
         }
     };
 
-    const { login } = useAuth();
+    const { login, register } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast(); // For feedback
 
@@ -38,21 +38,22 @@ const Login = () => {
         // Simulate network delay for effect
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        const success = login(email, password);
-
-        if (success) {
-            if (email.toLowerCase() === 'admin@jbcrafts.com') {
-                navigate('/admin');
-            } else {
+        if (isRegisterMode) {
+            const success = register(email, password);
+            if (success) {
                 navigate('/');
             }
+            // Error handled in context toast
         } else {
-            // Optional: Show error if login fails (login function might handle it or return false)
-            toast({
-                variant: "destructive",
-                title: "Login Failed",
-                description: "Invalid credentials. Please try again."
-            });
+            const success = login(email, password);
+
+            if (success) {
+                if (email.toLowerCase() === 'admin@jbcrafts.com') {
+                    navigate('/admin');
+                } else {
+                    navigate('/');
+                }
+            }
         }
         setIsLoading(false);
     };
