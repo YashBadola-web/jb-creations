@@ -107,10 +107,32 @@ const ProductsTab: React.FC = () => {
         <h1 className="font-display text-2xl font-semibold text-foreground">
           Products
         </h1>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={async () => {
+            if (!confirm('This will scan all products and update old categories (e.g. "resin" -> "resin_materials"). Continue?')) return;
+
+            let count = 0;
+            for (const p of products) {
+              const lowerCat = p.category.toLowerCase().trim();
+              let newCat = '';
+
+              if (lowerCat === 'resin' || lowerCat === 'resin art') newCat = 'resin_materials';
+              else if (lowerCat === 'decor' || lowerCat === 'home decor' || lowerCat === 'kids') newCat = 'home_decor';
+
+              if (newCat && newCat !== p.category) {
+                await updateProduct(p.id, { category: newCat });
+                count++;
+              }
+            }
+            toast({ title: "Data Check Complete", description: `Updated ${count} products to new categories.` });
+          }}>
+            Fix Categories
+          </Button>
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Product Form Modal */}
