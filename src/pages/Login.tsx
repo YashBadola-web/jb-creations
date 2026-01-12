@@ -26,7 +26,7 @@ const Login = () => {
         }
     };
 
-    const { login, register } = useAuth();
+    const { login, register, resetPassword } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast(); // For feedback
 
@@ -39,14 +39,15 @@ const Login = () => {
         if (isRegisterMode) {
             const success = await register(email, password);
             if (success) {
+                // Supabase might require email verification, but often it auto-logs in dev.
+                // We'll verify if session is active via context listener, but for now navigate home.
                 navigate('/');
             }
-            // Error handled in context toast
         } else {
             const success = await login(email, password);
 
             if (success) {
-                if (email.toLowerCase() === 'admin@jbcrafts.com') {
+                if (email.toLowerCase() === 'admin@jbcreations.com') {
                     navigate('/admin');
                 } else {
                     navigate('/');
@@ -58,11 +59,12 @@ const Login = () => {
 
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        toast({
-            title: "Contact Administrator",
-            description: "Please contact the administrator to reset your password.",
-        });
+        setIsLoading(true);
+
+        await resetPassword(email);
+
         setIsResetMode(false);
+        setIsLoading(false);
     };
 
     return (

@@ -1,125 +1,145 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 export interface User {
     id: string;
     email: string;
-    name: string;
+    name?: string;
     role: 'admin' | 'customer';
-    password?: string; // Added for local storage auth
     phone?: string;
 }
 
 interface AuthContextType {
     user: User | null;
+    isLoading: boolean;
     login: (email: string, password: string) => Promise<boolean>;
     register: (email: string, password: string) => Promise<boolean>;
-    logout: () => void;
+    logout: () => Promise<void>;
+    resetPassword: (email: string) => Promise<boolean>;
     isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Load user from local storage on mount (Synchronously to avoid flash)
-    const [user, setUser] = useState<User | null>(() => {
-        try {
-            const storedUser = localStorage.getItem('jbcrafts_user');
-            return storedUser ? JSON.parse(storedUser) : null;
-        } catch (e) {
-            return null;
-        }
-    });
-
+    const [user, setUser] = useState<User | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+
+    // Map Supabase User to App User
+    const mapUser = (sbUser: SupabaseUser): User => {
+        const isAdmin = sbUser.email?.toLowerCase() === 'admin@jbcreations.com';
+        return {
+            id: sbUser.id,
+            email: sbUser.email || '',
+            name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0],
+            role: isAdmin ? 'admin' : 'customer',
+        };
+    };
+
+    useEffect(() => {
+        // 1. Get initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            if (session?.user) {
+                setUser(mapUser(session.user));
+            }
+            setIsLoading(false);
+        });
+
+        // 2. Listen for changes
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (session?.user) {
+                setUser(mapUser(session.user));
+            } else {
+                setUser(null);
+            }
+            setIsLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     const login = async (email: string, password: string) => {
         try {
-            // Retrieve users from local storage
-            const storedUsers = localStorage.getItem('jbcrafts_users');
-            const users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
 
-            // Check for Admin
-            if (email.toLowerCase() === 'admin@jbcrafts.com' && password === 'admin123') {
-                const adminUser: User = { id: 'admin', email, name: 'Admin', role: 'admin' };
-                setUser(adminUser);
-                localStorage.setItem('jbcrafts_user', JSON.stringify(adminUser));
-                toast({ title: "Welcome back, Admin!", description: "You have full access." });
-                return true;
-            }
-
-            // Check Normal User
-            const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-            if (foundUser) {
-                // Verify Password (In a real app, hash this! For LS demo, we check direct match or simple logic)
-                // Since we stored it in register, we check it here. The prompt said "local storage based system".
-                // We stored 'password' in the user object in register? Or wait, previously I might have just done simple auth.
-                // Let's assume we store the password in the user object for this simple local persistence.
-
-                if (foundUser.password === password) {
-                    const { password, ...safeUser } = foundUser; // Remove password from session
-                    setUser(safeUser);
-                    localStorage.setItem('jbcrafts_user', JSON.stringify(safeUser));
-                    toast({ title: "Welcome back!", description: "Login successful." });
-                    return true;
-                } else {
-                    toast({ variant: "destructive", title: "Login Failed", description: "Invalid password." });
-                    return false;
-                }
-            } else {
-                toast({ variant: "destructive", title: "Login Failed", description: "User not found. Please register." });
+            if (error) {
+                toast({ variant: "destructive", title: "Login Failed", description: error.message });
                 return false;
             }
+
+            toast({ title: "Welcome back!", description: "Login successful." });
+            return true;
         } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "An error occurred during login." });
+            toast({ variant: "destructive", title: "Login Error", description: "An unexpected error occurred." });
             return false;
         }
     };
 
     const register = async (email: string, password: string) => {
         try {
-            const storedUsers = localStorage.getItem('jbcrafts_users');
-            const users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                // Make sure to set the redirect URL for email verification if enabled
+                // options: { emailRedirectTo: window.location.origin } 
+            });
 
-            if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-                toast({ variant: "destructive", title: "Registration Failed", description: "Email already registered. Please login." });
+            if (error) {
+                toast({ variant: "destructive", title: "Registration Failed", description: error.message });
                 return false;
             }
 
-            const newUser: User = {
-                id: `user_${Date.now()} `,
-                email,
-                name: email.split('@')[0],
-                role: 'customer',
-                password // We unfortunately have to store it to verify it later in this simple LS model
-            };
-
-            const updatedUsers = [...users, newUser];
-            localStorage.setItem('jbcrafts_users', JSON.stringify(updatedUsers));
-
-            const { password: _, ...safeUser } = newUser;
-            setUser(safeUser);
-            localStorage.setItem('jbcrafts_user', JSON.stringify(safeUser));
-
-            toast({ title: "Account Created", description: "Welcome to JB Crafts!" });
+            toast({ title: "Registration Successful", description: "Welcome to JB Creations!" });
             return true;
         } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "Could not create account." });
+            toast({ variant: "destructive", title: "Registration Error", description: "Could not create account." });
             return false;
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
+        await supabase.auth.signOut();
         setUser(null);
-        localStorage.removeItem('jbcrafts_user');
         toast({ title: "Logged Out", description: "See you soon!" });
     };
 
-    const isAdmin = user?.email === 'admin@jbcrafts.com';
+    const resetPassword = async (email: string) => {
+        try {
+            // This URL must match your routed 'Reset Password' page
+            const redirectTo = `${window.location.origin}/reset-password`;
+
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo,
+            });
+
+            if (error) {
+                toast({ variant: "destructive", title: "Request Failed", description: error.message });
+                return false;
+            }
+
+            toast({ title: "Email Sent", description: "Check your inbox for the password reset link." });
+            return true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    };
+
+    const isAdmin = user?.role === 'admin';
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, isAdmin }}>
+        <AuthContext.Provider value={{ user, isLoading, login, register, logout, resetPassword, isAdmin }}>
             {children}
         </AuthContext.Provider>
     );

@@ -12,6 +12,7 @@ import Checkout from "./pages/Checkout";
 import Admin from "./pages/Admin";
 import About from "./pages/About";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import ShippingPolicy from "./pages/ShippingPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/about" element={<About />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/shipping-policy" element={<ShippingPolicy />} />
               <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
