@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Upload, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
 import { Product, formatPriceINR, parsePriceToINR } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,16 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { CATEGORY_HIERARCHY, getCategoryLabel, getMainCategory } from '@/data/categories';
+import { uploadProductImage } from '@/utils/upload';
 
 const ProductsTab: React.FC = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useStore();
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const [uploading, setUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -32,7 +36,7 @@ const ProductsTab: React.FC = () => {
     category: 'resin' as string,
     subcategory: '' as string,
     stock: '',
-    imageUrl: '',
+    images: [] as string[], // Changed from imageUrl string to images array
     featured: false,
   });
 
@@ -45,11 +49,12 @@ const ProductsTab: React.FC = () => {
       category: 'resin',
       subcategory: '',
       stock: '',
-      imageUrl: '',
+      images: [],
       featured: false,
     });
     setEditingProduct(null);
     setShowForm(false);
+    setUploading(false);
   };
 
   const handleEdit = (product: Product) => {
@@ -62,14 +67,38 @@ const ProductsTab: React.FC = () => {
       category: product.category,
       subcategory: product.subcategory || '',
       stock: product.stock.toString(),
-      imageUrl: product.images[0] || '',
+      images: product.images || [],
       featured: product.featured,
     });
     setShowForm(true);
   };
 
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    const url = await uploadProductImage(file);
+    if (url) {
+      setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+      toast({ title: "Image Uploaded", description: "Image added to gallery." });
+    } else {
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload image." });
+    }
+    setUploading(false);
+  };
+
+  const removeImage = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, index) => index !== indexToRemove)
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.images.length === 0) {
+      toast({ variant: "destructive", title: "Missing Image", description: "Please add at least one product image." });
+      return;
+    }
 
     const priceInPaise = parsePriceToINR(parseFloat(formData.price));
     const costPriceInPaise = formData.costPrice ? parsePriceToINR(parseFloat(formData.costPrice)) : 0;
@@ -82,7 +111,7 @@ const ProductsTab: React.FC = () => {
       category: formData.category,
       subcategory: formData.subcategory || undefined,
       stock: parseInt(formData.stock),
-      images: [formData.imageUrl],
+      images: formData.images,
       featured: formData.featured,
     };
 
@@ -259,95 +288,80 @@ const ProductsTab: React.FC = () => {
                   </Select>
                 </div>
 
+                {/* --- Image Upload & Gallery --- */}
                 <div>
-                  <Label htmlFor="imageUrl">Product Image</Label>
-                  <div className="mt-2 space-y-4">
-                    {/* Image Preview */}
-                    {formData.imageUrl && (
-                      <div className="relative w-full h-48 bg-muted rounded-lg overflow-hidden border border-border">
-                        <img
-                          src={formData.imageUrl}
-                          alt="Preview"
-                          className="w-full h-full object-contain"
-                        />
+                  <Label>Product Images</Label>
+
+                  {/* Gallery Grid */}
+                  <div className="grid grid-cols-3 gap-3 mt-2 mb-3">
+                    {formData.images.map((img, idx) => (
+                      <div key={idx} className="relative group aspect-square border rounded-md overflow-hidden bg-muted">
+                        <img src={img} alt={`Product ${idx}`} className="w-full h-full object-cover" />
                         <button
                           type="button"
-                          onClick={() => setFormData({ ...formData, imageUrl: '' })}
-                          className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-colors"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3 w-3" />
                         </button>
                       </div>
-                    )}
+                    ))}
 
-                    {/* Drag & Drop Area */}
-                    {!formData.imageUrl && (
-                      <div
-                        className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer"
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const file = e.dataTransfer.files?.[0];
-                          if (file && file.type.startsWith('image/')) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                              if (event.target?.result) {
-                                setFormData({ ...formData, imageUrl: event.target.result as string });
-                              }
-                            };
-                            reader.readAsDataURL(file);
+                    {/* Upload Button Block */}
+                    <div className="relative aspect-square border-2 border-dashed border-muted-foreground/25 rounded-md flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1">
+                          <Plus className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Add</span>
+                        </div>
+                      )}
+                      <input
+                        id="file-upload"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        accept="image/*"
+                        disabled={uploading}
+                        onChange={async (e) => {
+                          if (e.target.files) {
+                            // Handle multiple files
+                            const files = Array.from(e.target.files);
+                            for (const file of files) {
+                              await handleImageUpload(file);
+                            }
                           }
                         }}
-                        onClick={() => document.getElementById('file-upload')?.click()}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <Plus className="h-8 w-8 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground font-medium">
-                            Click to upload or drag & drop
-                          </p>
-                          <p className="text-xs text-muted-foreground/70">
-                            SVG, PNG, JPG or GIF (max. 800x400px)
-                          </p>
-                        </div>
-                        <input
-                          id="file-upload"
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
-                                if (event.target?.result) {
-                                  setFormData({ ...formData, imageUrl: event.target.result as string });
-                                }
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Fallback URL Input */}
-                    <div className="flex items-center gap-2">
-                      <div className="h-px bg-border flex-1" />
-                      <span className="text-xs text-muted-foreground">OR ENTER URL</span>
-                      <div className="h-px bg-border flex-1" />
+                      />
                     </div>
+                  </div>
 
+                  {/* Paste URL Option */}
+                  <div className="flex gap-2">
                     <Input
-                      id="imageUrl"
-                      value={formData.imageUrl}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                      className="mt-1"
-                      placeholder="https://..."
+                      placeholder="Or paste image URL"
+                      className="text-xs h-8"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = e.currentTarget.value;
+                          if (val) {
+                            setFormData(prev => ({ ...prev, images: [...prev.images, val] }));
+                            e.currentTarget.value = '';
+                          }
+                        }
+                      }}
                     />
+                    <Button type="button" variant="outline" size="sm" className="h-8" onClick={(e) => {
+                      const input = e.currentTarget.previousSibling as HTMLInputElement;
+                      if (input && input.value) {
+                        setFormData(prev => ({ ...prev, images: [...prev.images, input.value] }));
+                        input.value = '';
+                      }
+                    }}>Add</Button>
                   </div>
                 </div>
 
@@ -368,7 +382,7 @@ const ProductsTab: React.FC = () => {
                   <Button type="button" variant="outline" onClick={resetForm} className="flex-1">
                     Cancel
                   </Button>
-                  <Button type="submit" className="flex-1">
+                  <Button type="submit" className="flex-1" disabled={uploading}>
                     {editingProduct ? 'Update' : 'Add'} Product
                   </Button>
                 </div>
@@ -409,17 +423,26 @@ const ProductsTab: React.FC = () => {
                 <tr key={product.id} className="hover:bg-muted/50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={product.images[0]}
-                        alt={product.name}
-                        className="w-10 h-10 object-cover rounded"
-                      />
+                      {product.images && product.images.length > 0 ? (
+                        <img
+                          src={product.images[0]}
+                          alt={product.name}
+                          className="w-10 h-10 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
                       <div>
                         <p className="font-medium text-foreground text-sm line-clamp-1">
                           {product.name}
                         </p>
                         {product.featured && (
                           <span className="text-xs text-primary">Featured</span>
+                        )}
+                        {product.images && product.images.length > 1 && (
+                          <span className="text-xs text-muted-foreground ml-2">({product.images.length} images)</span>
                         )}
                       </div>
                     </div>
