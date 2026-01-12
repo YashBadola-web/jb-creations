@@ -74,6 +74,11 @@ const OrdersTab: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-display text-lg text-foreground">{order.displayTotal}</p>
+                    {order.transactionId && (
+                      <p className="text-xs font-mono text-primary my-0.5 selection:bg-primary selection:text-white">
+                        TID: {order.transactionId}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground capitalize">{order.paymentMethod}</p>
                     <p className="text-xs text-muted-foreground mt-1">{new Date(order.createdAt).toLocaleDateString()}</p>
                   </div>

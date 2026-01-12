@@ -15,6 +15,8 @@ const ProductDetail: React.FC = () => {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [customText, setCustomText] = useState('');
+  const [sizeValue, setSizeValue] = useState('');
+  const [sizeUnit, setSizeUnit] = useState<'cm' | 'inch'>('cm');
 
   // Scroll to top when product ID changes
   useEffect(() => {
@@ -61,12 +63,16 @@ const ProductDetail: React.FC = () => {
       });
       return;
     }
-    addToCart(product, quantity, customText);
+
+    const customSize = sizeValue.trim() ? `${sizeValue.trim()} ${sizeUnit}` : undefined;
+
+    addToCart(product, quantity, customText, customSize);
     toast({
       title: 'Added to cart',
       description: `${quantity}x ${product.name} has been added to your cart.`,
     });
     setCustomText('');
+    setSizeValue('');
   };
 
   return (
@@ -124,16 +130,53 @@ const ProductDetail: React.FC = () => {
 
             {/* Customization Input */}
             {isCustomizable && (
-              <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border">
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Personalization Required:
-                </label>
-                <textarea
-                  className="w-full p-2 rounded-md border border-input bg-background text-sm min-h-[80px]"
-                  placeholder="Enter custom text, names, or quotes here..."
-                  value={customText}
-                  onChange={(e) => setCustomText(e.target.value)}
-                />
+              <div className="mb-6 space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Enter Custom Text:
+                  </label>
+                  <textarea
+                    className="w-full p-2 rounded-md border border-input bg-background text-sm min-h-[80px]"
+                    placeholder="Enter custom text, names, or quotes here..."
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-foreground">
+                      Size (Optional):
+                    </label>
+                    <div className="flex bg-muted rounded-lg p-1">
+                      <button
+                        onClick={() => setSizeUnit('cm')}
+                        className={`px-3 py-1 text-xs rounded-md transition-all ${sizeUnit === 'cm' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                      >
+                        cm
+                      </button>
+                      <button
+                        onClick={() => setSizeUnit('inch')}
+                        className={`px-3 py-1 text-xs rounded-md transition-all ${sizeUnit === 'inch' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                      >
+                        inch
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 p-2 rounded-md border border-input bg-background text-sm"
+                      placeholder={`e.g. 10x10`}
+                      value={sizeValue}
+                      onChange={(e) => setSizeValue(e.target.value)}
+                    />
+                    <span className="text-sm text-muted-foreground w-8">{sizeUnit}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Specify width x height</p>
+                </div>
               </div>
             )}
 

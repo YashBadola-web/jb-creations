@@ -77,8 +77,13 @@ const Cart: React.FC = () => {
                     {getCategoryLabel(item.product.category)}
                   </p>
                   {item.customText && (
-                    <p className="text-xs text-primary italic mb-2">
+                    <p className="text-xs text-primary italic mb-1">
                       " {item.customText} "
+                    </p>
+                  )}
+                  {item.customSize && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Size: {item.customSize}
                     </p>
                   )}
                   <p className="font-display text-lg text-foreground">
@@ -90,7 +95,7 @@ const Cart: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => removeFromCart(item.product.id, item.customText)}
+                    onClick={() => removeFromCart(item.product.id, item.customText, item.customSize)}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -100,7 +105,7 @@ const Cart: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1, item.customText)}
+                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1, item.customText, item.customSize)}
                       className="h-8 w-8"
                     >
                       <Minus className="h-3 w-3" />
@@ -111,7 +116,7 @@ const Cart: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1, item.customText)}
+                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1, item.customText, item.customSize)}
                       disabled={item.quantity >= item.product.stock}
                       className="h-8 w-8"
                     >

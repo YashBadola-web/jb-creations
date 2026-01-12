@@ -21,6 +21,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   customText?: string; // For customized items
+  customSize?: string; // New field for size customization
 }
 
 export interface Order {

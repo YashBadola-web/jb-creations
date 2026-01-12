@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { Database, Download, Upload, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,11 +7,10 @@ import { useToast } from '@/hooks/use-toast';
 import { usePnL } from '@/hooks/usePnL';
 import { useStore } from '@/context/StoreContext';
 import { formatPriceINR } from '@/types';
-import DatabaseMigration from './DatabaseMigration';
 
 const DataTab: React.FC = () => {
     const { toast } = useToast();
-    const { clearAllOrders } = useStore();
+    const { clearAllOrders, clearAllProducts } = useStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Helper to get all relevant data from localStorage
@@ -198,10 +198,6 @@ const DataTab: React.FC = () => {
         <div>
             <h1 className="font-display text-2xl font-semibold text-foreground mb-6">Data & Backups</h1>
 
-            <div className="mb-8">
-                <DatabaseMigration />
-            </div>
-
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Storage Stats */}
                 <div className="bg-card rounded-lg border border-border p-6">
@@ -319,6 +315,21 @@ const DataTab: React.FC = () => {
                             <Trash2 className="h-4 w-4" />
                             Clear Order History
                         </Button>
+
+                        <Button
+                            onClick={async () => {
+                                if (confirm('WARNING: This will permanently delete ALL products from your catalog. This action cannot be undone.')) {
+                                    if (confirm('Are you absolutely sure you want to remove all products?')) {
+                                        await clearAllProducts();
+                                    }
+                                }
+                            }}
+                            variant="destructive"
+                            className="w-full flex items-center justify-center gap-2 mt-3"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Clear All Products
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -339,3 +350,4 @@ const DataTab: React.FC = () => {
 };
 
 export default DataTab;
+

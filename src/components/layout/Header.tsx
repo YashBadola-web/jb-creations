@@ -1,12 +1,11 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Menu, X, UserCircle2, UserCheck, Power, LogIn } from 'lucide-react';
+import { ShoppingBag, Menu, X, UserCheck, Power } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-
-
 import { CATEGORY_HIERARCHY } from '@/data/categories';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -24,7 +23,6 @@ const Header: React.FC = () => {
     <header className="sticky top-0 z-50 bg-[image:var(--gradient-hero)] text-white border-b border-white/20">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo */}
           {/* Logo */}
           <div className="flex items-center gap-2">
             <a href="/" className="text-2xl font-display font-bold text-white hover:opacity-90 transition-opacity">

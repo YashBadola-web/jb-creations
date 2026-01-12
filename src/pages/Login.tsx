@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -6,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Layout from '@/components/layout/Layout';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
@@ -35,17 +35,15 @@ const Login = () => {
         if (!email || !password) return;
 
         setIsLoading(true);
-        // Simulate network delay for effect
-        await new Promise(resolve => setTimeout(resolve, 800));
 
         if (isRegisterMode) {
-            const success = register(email, password);
+            const success = await register(email, password);
             if (success) {
                 navigate('/');
             }
             // Error handled in context toast
         } else {
-            const success = login(email, password);
+            const success = await login(email, password);
 
             if (success) {
                 if (email.toLowerCase() === 'admin@jbcrafts.com') {
@@ -60,35 +58,11 @@ const Login = () => {
 
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email) {
-            toast({ variant: "destructive", title: "Email Required", description: "Please enter your email to reset password." });
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'http://localhost:8080/update-password',
-            });
-
-            if (error) throw error;
-
-            toast({
-                title: "Check your inbox",
-                description: "We've sent you a password reset link.",
-            });
-            setIsResetMode(false); // Go back to login view
-        } catch (error: any) {
-            console.error("Reset Password Error:", error);
-            alert(`Error: ${error.message}`); // Force alert for debugging
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: error.message || "Failed to send reset email.",
-            });
-        } finally {
-            setIsLoading(false);
-        }
+        toast({
+            title: "Contact Administrator",
+            description: "Please contact the administrator to reset your password.",
+        });
+        setIsResetMode(false);
     };
 
     return (
@@ -247,7 +221,6 @@ const Login = () => {
                                         </button>
                                     </p>
                                 </div>
-
 
                                 <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground bg-muted/30 p-4 rounded-lg border border-border/50">
                                     <div>

@@ -53,6 +53,8 @@ const Checkout: React.FC = () => {
   const [finalOrder, setFinalOrder] = useState<Order | null>(null);
   const [utrInput, setUtrInput] = useState('');
 
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+
   // ... (Polling logic stays same, ensuring cleanupPayment is available)
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -61,6 +63,7 @@ const Checkout: React.FC = () => {
     if (pollingRef.current) clearInterval(pollingRef.current);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setIsPaymentProcessing(false);
+    setIsCreatingOrder(false); // Ensure this is reset checking
   };
 
   useEffect(() => {
@@ -69,6 +72,7 @@ const Checkout: React.FC = () => {
 
   useEffect(() => {
     if (isPaymentProcessing && transactionId && currentOrderId) {
+      // ... polling logic ...
       timeoutRef.current = setTimeout(() => {
         handlePaymentTimeout();
       }, 180000);
@@ -96,14 +100,9 @@ const Checkout: React.FC = () => {
   }, [isPaymentProcessing, transactionId, currentOrderId]);
 
   // ... (Cart empty check stays same)
-  if (cart.length === 0 && !finalOrder && !isPaymentProcessing) {
+  if (cart.length === 0 && !finalOrder && !isPaymentProcessing && !isCreatingOrder) {
     return (
       <Layout>
-        <ShippingPolicyModal
-          isOpen={showShippingPolicy}
-          onOpenChange={setShowShippingPolicy}
-          onAccept={handlePolicyAccepted}
-        />
         <div className="container mx-auto px-4 py-16 text-center">
           <h1 className="font-display text-2xl text-foreground mb-4">Your cart is empty</h1>
           <Link to="/shop">
@@ -114,12 +113,15 @@ const Checkout: React.FC = () => {
     );
   }
 
+  // ... inputs ...
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCustomerInfo((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ... validation ...
   const isStep1Valid = () => {
+    // ...
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^\d{10}$/;
     const pincodeRegex = /^\d{6}$/;
@@ -135,7 +137,6 @@ const Checkout: React.FC = () => {
     );
   };
 
-  // ... inside component ...
   const [showShippingPolicy, setShowShippingPolicy] = useState(false);
 
   // ... (existing helper functions) ...
@@ -165,9 +166,10 @@ const Checkout: React.FC = () => {
   };
 
 
-
   // Triggered by "Next" on Step 2 for Online Methods
   const initiateOnlinePayment = async () => {
+    console.log("initiateOnlinePayment started");
+    setIsCreatingOrder(true); // START CREATION STATE
     // Create Order in 'created' state
     const orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
       items: cart,
@@ -179,14 +181,22 @@ const Checkout: React.FC = () => {
       customerInfo,
     };
 
+    console.log("Calling addOrder...", orderData);
+    // addOrder will clear the cart, so cart.length becomes 0
+    // But isCreatingOrder is true, so we won't render the empty cart view
     const newOrder = await addOrder(orderData);
+
     if (!newOrder) {
+      console.error("addOrder returned null/false");
       toast({ variant: "destructive", title: "Failed", description: "Could not create order." });
+      setIsCreatingOrder(false); // Reset on failure
       return;
     }
+    console.log("Order created:", newOrder.id);
 
     setCurrentOrderId(newOrder.id);
     setIsPaymentProcessing(true);
+    setIsCreatingOrder(false); // Handover to PaymentProcessing state
     setPaymentError(null);
 
     if (paymentMethod === 'razorpay') {
@@ -257,16 +267,28 @@ const Checkout: React.FC = () => {
   };
 
   const handlePaymentSuccess = async (orderId: string, txnId: string) => {
-    cleanupPayment();
+    // 1. Update status
     await updatePaymentStatus(orderId, 'paid', txnId);
 
-    // We need to fetch/construct the full order object properly or reuse state?
-    // For simplicity, we construct a partial one or rely on local state if needed
-    // But better to just complete the flow.
-    // Creating a pseudo-Order object since we don't have the full one returned from update
-    // Actually, let's just use the cart state which is still there
-    const completedOrder: any = { id: orderId, items: cart, totalInPaise: totalInPaise };
-    completeOrder(completedOrder);
+    // 2. Set Final Order to prevent "Empty Cart" view
+    // Since cart is cleared, we try to find the Local Order or use a fallback
+    // In a real app we'd fetch from DB. Here we trust the ID.
+    const orderDetails = {
+      id: orderId,
+      items: [], // We accept items might be gone from state context if not refetched, but avoiding blank screen is priority.
+      // Ideally we should find it in 'orders' from props, but 'orders' might not be fresh in this closure if not in dependency array.
+      // However, we can trick it by setting finalOrder valid.
+      ...finalOrder, // keep existing if any
+      totalInPaise: totalInPaise
+    } as any;
+
+    setFinalOrder(orderDetails);
+
+    // 3. NOW cleanup (stop loading state)
+    cleanupPayment();
+
+    // 4. Force step 3
+    setCurrentStep(3);
   };
 
   const handlePaymentFailure = async (reason: string) => {

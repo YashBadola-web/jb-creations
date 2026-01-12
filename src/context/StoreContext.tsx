@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, CartItem, Order, AdminSettings, formatPriceINR, Coupon } from '@/types';
 import { initialProducts } from '@/data/products';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 interface StoreContextType {
@@ -11,14 +10,15 @@ interface StoreContextType {
   orders: Order[];
   adminSettings: AdminSettings;
   isLoading: boolean;
-  addToCart: (product: Product, quantity?: number, customText?: string) => void;
-  removeFromCart: (productId: string, customText?: string) => void;
-  updateCartQuantity: (productId: string, quantity: number, customText?: string) => void;
+  addToCart: (product: Product, quantity?: number, customText?: string, customSize?: string) => void;
+  removeFromCart: (productId: string, customText?: string, customSize?: string) => void;
+  updateCartQuantity: (productId: string, quantity: number, customText?: string, customSize?: string) => void;
   clearCart: () => void;
   getCartTotal: () => { totalInPaise: number; displayTotal: string };
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'displayPrice'>) => Promise<void>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+  clearAllProducts: () => Promise<void>;
   updateAdminSettings: (settings: Partial<AdminSettings>) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
@@ -60,189 +60,189 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Remote Data ---
+  // --- Data State ---
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
-  // --- Local Data ---
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('jbcrafts_cart');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('jbcrafts_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to parse cart from local storage", e);
+      return [];
+    }
   });
 
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
-    const saved = localStorage.getItem('jbcrafts_settings');
-    return saved ? JSON.parse(saved) : defaultAdminSettings;
+    try {
+      const saved = localStorage.getItem('jbcrafts_settings');
+      return saved ? JSON.parse(saved) : defaultAdminSettings;
+    } catch (e) {
+      console.error("Failed to parse settings", e);
+      return defaultAdminSettings;
+    }
   });
 
   const [shippingOverrides, setShippingOverrides] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem('jbcrafts_shipping_overrides');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('jbcrafts_shipping_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) { return {}; }
   });
 
   const [feeOverrides, setFeeOverrides] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem('jbcrafts_fee_overrides');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('jbcrafts_fee_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) { return {}; }
   });
 
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem('jbcrafts_coupons');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('jbcrafts_coupons');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
   });
 
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
-  // --- Initial Fetch ---
+  // --- Initial Fetch (Load from LocalStorage) ---
   useEffect(() => {
-    fetchData();
+    const initializeStore = async () => {
+      try {
+        console.log("Initializing Store...");
+        // Load Cart
+        const storedCart = localStorage.getItem('jbcrafts_cart');
+        if (storedCart) {
+          try {
+            setCart(JSON.parse(storedCart));
+          } catch (e) { console.error("Error parsing cart in effect", e); }
+        }
+
+        // Load Admin Settings
+        const storedSettings = localStorage.getItem('jbcrafts_settings');
+        if (storedSettings) {
+          try { setAdminSettings(JSON.parse(storedSettings)); } catch (e) { }
+        }
+
+        // Load Products
+        const storedProducts = localStorage.getItem('jbcrafts_products');
+        if (storedProducts) {
+          try {
+            const parsed = JSON.parse(storedProducts);
+            console.log("Loaded products from LS:", parsed.length);
+            setProducts(parsed);
+          } catch (e) {
+            console.error("Error parsing products in effect", e);
+            setProducts(initialProducts);
+          }
+        } else {
+          console.log("No products in LS, using initialProducts:", initialProducts.length);
+          setProducts(initialProducts);
+        }
+
+        // Load Orders
+        const storedOrders = localStorage.getItem('jbcrafts_orders');
+        if (storedOrders) {
+          try { setOrders(JSON.parse(storedOrders)); } catch (e) { }
+        }
+
+      } catch (error) {
+        console.error("Failed to load local data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeStore();
   }, []);
 
-  const fetchData = async () => {
-    setIsLoading(true);
+
+  // --- Persistence Effects ---
+  useEffect(() => {
     try {
-      // Fetch Products
-      const { data: productsData, error: prodError } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (prodError) throw prodError;
-
-      const productsSource = productsData || [];
-      let formattedProducts: Product[] = [];
-
-      if (productsSource.length === 0) {
-        console.log("Using local mock data (DB empty or not populated)");
-        formattedProducts = initialProducts;
-        setProducts(initialProducts);
-      } else {
-        formattedProducts = productsSource.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description,
-          priceInPaise: p.price_in_paise,
-          displayPrice: formatPriceINR(p.price_in_paise),
-          category: p.category,
-          subcategory: p.subcategory,
-          images: p.image_urls || [],
-          stock: p.stock,
-          featured: p.featured,
-          costPriceInPaise: p.cost_price_in_paise,
-          createdAt: p.created_at,
-          updatedAt: p.updated_at,
-          sales: p.sales
-        }));
-        setProducts(formattedProducts);
-      }
-
-      // Fetch Orders
-      const { data: ordersData, error: orderError } = await supabase
-        .from('orders')
-        .select(`
-  *,
-  order_items(
-    product_id,
-    product_name_snapshot,
-    quantity,
-    price_at_purchase,
-    custom_text
-  )
-    `)
-        .order('created_at', { ascending: false });
-
-      if (orderError) throw orderError;
-
-      // Map DB Orders to Context Order Type
-      // We need to reconstruct the "items" array with product details
-      const formattedOrders: Order[] = ordersData?.map((o: any) => {
-        const items = o.order_items.map((item: any) => {
-          // Try to find the live product, fallback to snapshot
-          const product = formattedProducts.find(p => p.id === item.product_id) || {
-            id: item.product_id || 'deleted',
-            name: item.product_name_snapshot,
-            priceInPaise: item.price_at_purchase,
-            displayPrice: formatPriceINR(item.price_at_purchase),
-            images: [], // Placeholder if deleted
-            category: 'resin', // Default fallback
-            stock: 0,
-            featured: false,
-            description: '',
-            costPriceInPaise: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          } as Product;
-
-          return {
-            product,
-            quantity: item.quantity,
-            customText: item.custom_text
-          } as CartItem;
-        });
-
-        return {
-          id: o.id,
-          items,
-          totalInPaise: o.total_in_paise,
-          displayTotal: formatPriceINR(o.total_in_paise),
-          status: o.status,
-          paymentMethod: o.payment_method,
-          paymentStatus: o.payment_status,
-          transactionId: o.transaction_id,
-          customerInfo: o.customer_info,
-          createdAt: o.created_at,
-          updatedAt: o.updated_at
-        };
-      }) || [];
-
-      setOrders(formattedOrders);
-
-    } catch (error: any) {
-      console.error("Error fetching data:", error);
-      toast({
-        variant: "destructive",
-        title: "Connection Error",
-        description: "Failed to load data from Cloud."
-      });
-    } finally {
-      setIsLoading(false);
+      console.log("Persisting cart:", cart);
+      localStorage.setItem('jbcrafts_cart', JSON.stringify(cart));
+    } catch (error) {
+      console.error("Failed to save cart to local storage:", error);
+      toast({ variant: "destructive", title: "Storage Full", description: "Cart could not be saved to local storage." });
     }
-  };
+  }, [cart, toast]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('jbcrafts_settings', JSON.stringify(adminSettings));
+    } catch (error) { console.error(error); }
+  }, [adminSettings]);
 
-  // --- Local Persistence Effects (Cart, Settings) ---
-  useEffect(() => localStorage.setItem('jbcrafts_cart', JSON.stringify(cart)), [cart]);
-  useEffect(() => localStorage.setItem('jbcrafts_settings', JSON.stringify(adminSettings)), [adminSettings]);
-  useEffect(() => localStorage.setItem('jbcrafts_shipping_overrides', JSON.stringify(shippingOverrides)), [shippingOverrides]);
-  useEffect(() => localStorage.setItem('jbcrafts_fee_overrides', JSON.stringify(feeOverrides)), [feeOverrides]);
-  useEffect(() => localStorage.setItem('jbcrafts_coupons', JSON.stringify(coupons)), [coupons]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('jbcrafts_shipping_overrides', JSON.stringify(shippingOverrides));
+    } catch (error) { console.error(error); }
+  }, [shippingOverrides]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jbcrafts_fee_overrides', JSON.stringify(feeOverrides));
+    } catch (error) { console.error(error); }
+  }, [feeOverrides]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jbcrafts_coupons', JSON.stringify(coupons));
+    } catch (error) { console.error(error); }
+  }, [coupons]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jbcrafts_products', JSON.stringify(products));
+    } catch (error) {
+      console.error("Failed to save products:", error);
+      toast({ variant: "destructive", title: "Storage Full", description: "Products could not be saved locally." });
+    }
+  }, [products, toast]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jbcrafts_orders', JSON.stringify(orders));
+    } catch (error) {
+      console.error("Failed to save orders:", error);
+      toast({ variant: "destructive", title: "Storage Full", description: "Orders could not be saved locally." });
+    }
+  }, [orders, toast]);
 
 
   // --- Cart Actions ---
-  const addToCart = (product: Product, quantity = 1, customText?: string) => {
+  const addToCart = (product: Product, quantity = 1, customText?: string, customSize?: string) => {
+    console.log("addToCart called with:", product.name, quantity, customSize);
     setCart(prev => {
       const existing = prev.find(item =>
-        item.product.id === product.id && item.customText === customText
+        item.product.id === product.id && item.customText === customText && item.customSize === customSize
       );
 
       if (existing) {
+        console.log("Updating existing item quantity");
         return prev.map(item =>
-          (item.product.id === product.id && item.customText === customText)
+          (item.product.id === product.id && item.customText === customText && item.customSize === customSize)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity, customText }];
+      console.log("Adding new item");
+      return [...prev, { product, quantity, customText, customSize }];
     });
+    toast({ title: "Added to Cart", description: `${quantity} x ${product.name}` });
   };
 
-  const removeFromCart = (productId: string, customText?: string) => {
-    setCart(prev => prev.filter(item => !(item.product.id === productId && item.customText === customText)));
+  const removeFromCart = (productId: string, customText?: string, customSize?: string) => {
+    setCart(prev => prev.filter(item => !(item.product.id === productId && item.customText === customText && item.customSize === customSize)));
   };
 
-  const updateCartQuantity = (productId: string, quantity: number, customText?: string) => {
-    if (quantity <= 0) return removeFromCart(productId, customText);
+  const updateCartQuantity = (productId: string, quantity: number, customText?: string, customSize?: string) => {
+    if (quantity <= 0) return removeFromCart(productId, customText, customSize);
     setCart(prev => prev.map(item =>
-      (item.product.id === productId && item.customText === customText)
+      (item.product.id === productId && item.customText === customText && item.customSize === customSize)
         ? { ...item, quantity }
         : item
     ));
@@ -288,172 +288,99 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const removeCoupon = () => setAppliedCoupon(null);
 
 
-  // --- Product Actions (Supabase) ---
-  const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'displayPrice'>) => {
-    try {
-      const { data, error } = await supabase.from('products').insert({
-        name: product.name,
-        description: product.description,
-        price_in_paise: product.priceInPaise,
-        stock: product.stock,
-        category: product.category,
-        subcategory: product.subcategory,
-        image_urls: product.images,
-        featured: product.featured,
-        cost_price_in_paise: product.costPriceInPaise
-      }).select().single();
-
-      if (error) throw error;
-
-      // Refresh local state to match DB
-      fetchData();
-      toast({ title: "Product Added", description: "Synced to Cloud." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message });
-    }
+  // --- Product Actions (Local Storage) ---
+  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'displayPrice'>) => {
+    const newProduct: Product = {
+      id: `prod_${Date.now()}`,
+      ...productData,
+      displayPrice: formatPriceINR(productData.priceInPaise),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sales: 0
+    };
+    setProducts(prev => [newProduct, ...prev]);
+    toast({ title: "Product Added", description: "Saved to local storage." });
   };
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.name) dbUpdates.name = updates.name;
-      if (updates.description) dbUpdates.description = updates.description;
-      if (updates.priceInPaise) dbUpdates.price_in_paise = updates.priceInPaise;
-      if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
-      if (updates.category) dbUpdates.category = updates.category;
-      if (updates.subcategory) dbUpdates.subcategory = updates.subcategory;
-      if (updates.images) dbUpdates.image_urls = updates.images;
-      if (updates.featured !== undefined) dbUpdates.featured = updates.featured;
-      if (updates.costPriceInPaise !== undefined) dbUpdates.cost_price_in_paise = updates.costPriceInPaise;
-      dbUpdates.updated_at = new Date().toISOString();
-
-      const { error } = await supabase.from('products').update(dbUpdates).eq('id', id);
-      if (error) throw error;
-
-      // Optimistic update or fetch
-      fetchData();
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: e.message });
-    }
+    setProducts(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      return {
+        ...p,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+    }));
+    toast({ title: "Product Updated", description: "Changes saved." });
   };
 
   const deleteProduct = async (id: string) => {
-    try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw error;
-      setProducts(prev => prev.filter(p => p.id !== id));
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Delete Failed", description: e.message });
+    setProducts(prev => prev.filter(p => p.id !== id));
+    toast({ title: "Product Deleted", description: "Removed from catalog." });
+  };
+
+  const clearAllProducts = async () => {
+    if (confirm("Are you sure? This will delete all products from this browser.")) {
+      setProducts([]);
+      toast({ title: "Catalog Cleared", description: "All products removed." });
     }
   };
 
 
-  // --- Order Actions (Supabase) ---
-  const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order | null> => {
+  // --- Order Actions (Local Storage) ---
+  const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order | null> => {
+    console.log("addOrder called with:", orderData);
     try {
-      // 1. Insert Order
-      const { data: newOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          status: order.status,
-          total_in_paise: order.totalInPaise,
-          payment_method: order.paymentMethod,
-          payment_status: order.paymentStatus || 'pending',
-          customer_info: order.customerInfo
-        })
-        .select()
-        .single();
+      const newOrder: Order = {
+        id: `ord_${Date.now()}`,
+        ...orderData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        paymentStatus: orderData.paymentStatus || 'pending'
+      };
 
-      if (orderError) throw orderError;
+      setOrders(prev => {
+        console.log("Setting orders, prev length:", prev.length);
+        return [newOrder, ...prev];
+      });
 
-      // 2. Insert Order Items
-      const items = order.items.map(item => ({
-        order_id: newOrder.id,
-        product_id: item.product.id.includes('prod_') ? null : item.product.id, // Handle legacy IDs if any? actually UUIDs now
-        product_name_snapshot: item.product.name,
-        quantity: item.quantity,
-        price_at_purchase: item.product.priceInPaise,
-        custom_text: item.customText || null
+      // Update stock
+      setProducts(prev => prev.map(p => {
+        const item = orderData.items.find(i => i.product.id === p.id);
+        if (item) {
+          return { ...p, stock: Math.max(0, p.stock - item.quantity), sales: (p.sales || 0) + item.quantity };
+        }
+        return p;
       }));
 
-      const { error: itemsError } = await supabase.from('order_items').insert(items);
-      if (itemsError) throw itemsError;
-
-      // 3. Update Stock (Simple decrements)
-      for (const item of order.items) {
-        if (!item.product.id) continue;
-        // RPC would be better for concurrency, but client-side calc is okay for this scale
-        const currentStock = item.product.stock;
-        const newStock = Math.max(0, currentStock - item.quantity);
-        await supabase.from('products').update({ stock: newStock }).eq('id', item.product.id);
-      }
-
-      // 4. Upsert Customer (Save Email)
-      if (order.customerInfo && order.customerInfo.email) {
-        const { error: custError } = await supabase
-          .from('customers')
-          .upsert({
-            email: order.customerInfo.email.trim().toLowerCase(),
-            name: order.customerInfo.name,
-            phone: order.customerInfo.phone,
-            source: 'website_order'
-          }, { onConflict: 'email' });
-
-        if (custError) console.error("Failed to save customer", custError);
-      }
-
-      toast({ title: "Order Placed", description: `Order #${newOrder.id.slice(0, 8)} created.` });
-
-      // Optimistic return structure for UI immediate feedback
-      // We don't have the full joined structure without refetching, so refetch is safer.
-      fetchData();
-
-      return { ...order, id: newOrder.id, createdAt: newOrder.created_at, updatedAt: newOrder.updated_at } as Order;
-
-    } catch (e: any) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Order Failed", description: e.message });
+      clearCart();
+      toast({ title: "Order Placed", description: `Order #${newOrder.id} confirmed!` });
+      return newOrder;
+    } catch (e) {
+      console.error("Error inside addOrder:", e);
       return null;
     }
   };
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
-    try {
-      const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
-      if (error) throw error;
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message });
-    }
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    toast({ title: "Status Updated", description: `Order marked as ${status}.` });
   };
 
   const updatePaymentStatus = async (orderId: string, status: Order['paymentStatus'], transactionId?: string) => {
-    try {
-      const updates: any = { payment_status: status };
-      if (transactionId) updates.transaction_id = transactionId;
-
-      const { error } = await supabase.from('orders').update(updates).eq('id', orderId);
-      if (error) throw error;
-
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message });
-    }
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+      return {
+        ...o,
+        paymentStatus: status,
+        transactionId: transactionId || o.transactionId
+      };
+    }));
   };
 
   const clearAllOrders = async () => {
-    try {
-      // Delete all orders from Supabase
-      // Using a condition that is always true to delete all rows if no other filters
-      const { error } = await supabase.from('orders').delete().gt('created_at', '1970-01-01');
-
-      if (error) throw error;
-
-      setOrders([]);
-      toast({ title: "Success", description: "All order history has been cleared." });
-    } catch (e: any) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Failed to Clear Orders", description: e.message });
-    }
+    setOrders([]);
+    toast({ title: "History Cleared", description: "All orders removed." });
   };
 
   // --- Admin Settings Misc ---
@@ -470,12 +397,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const updateOrderProductCost = (orderId: string, productId: string, costInPaise: number) => {
-    // This was previously local-only on the order structure. 
-    // In DB schema, we don't have per-order-item cost override column yet. 
-    // For now, we will update the LOCAL STATE only to not break UI, 
-    // but warn that it won't persist to DB unless we add a column.
-    // Ideally we add `cost_at_purchase` to `order_items` table.
-    // For this migration scope, let's just update local state.
     setOrders(prev =>
       prev.map(order => {
         if (order.id !== orderId) return order;
@@ -509,6 +430,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addProduct,
         updateProduct,
         deleteProduct,
+        clearAllProducts,
         updateAdminSettings,
         addOrder,
         updateOrderStatus,
