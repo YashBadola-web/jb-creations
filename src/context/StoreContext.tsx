@@ -110,7 +110,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       try {
         console.log("Initializing Store from Supabase...");
 
-        // 1. Fetch Products from Supabase
+        // 1. Fetch Products
         const { data: dbProducts, error: prodError } = await supabase
           .from('products')
           .select('*')
@@ -118,43 +118,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
         if (prodError) throw prodError;
 
-        if (dbProducts) {
-          const mappedProducts: Product[] = dbProducts.map(p => ({
-            id: p.id,
-            name: p.name,
-            description: p.description || '',
-            priceInPaise: Math.round(p.price * 100), // DB Decimal -> App Paise
-            displayPrice: formatPriceINR(Math.round(p.price * 100)),
-            category: p.category || 'other',
-            subcategory: p.subcategory,
-            stock: p.stock,
-            images: p.images || [],
-            featured: p.featured || false,
-            costPriceInPaise: p.cost_price ? Math.round(p.cost_price * 100) : 0,
-            createdAt: p.created_at,
-            updatedAt: p.updated_at,
-            sales: 0 // Sales could be calculated from orders if needed
-          }));
-          setProducts(mappedProducts);
-        }
-
-        // 2. Fetch Orders from Supabase
-        const { data: dbOrders, error: ordError } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (ordError) throw ordError;
-
-        if (dbOrders) {
-          // We need to fetch Items for orders usually, but simplest way is to JSONB currently or separate fetch
-          // For this implementation, let's assume we might need to fetch items separately or if we stored them in JSON for simple views
-          // Creating a proper mapped order requires joining order_items.
-          // For simplicity in this migration step, let's just Map the basic fields and fetch items if needed
-          // OR: Let's do a join query
-        }
-
-        // RE-FETCH with JOIN for Orders + Items
+        // 2. Fetch Orders (Full with items)
         const { data: fullOrders, error: fullOrdError } = await supabase
           .from('orders')
           .select(`
@@ -171,13 +135,47 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
         if (fullOrdError) throw fullOrdError;
 
+        // 3. Calculate Sales Map from Orders
+        const salesMap: Record<string, number> = {};
+        if (fullOrders) {
+          fullOrders.forEach((order: any) => {
+            if (order.status !== 'cancelled' && order.payment_status === 'paid') { // Only count confirmed/paid sales? Or all non-cancelled? 
+              // Let's count all non-cancelled orders for "popularity"
+              if (order.status === 'cancelled') return;
+
+              order.order_items.forEach((item: any) => {
+                salesMap[item.product_id] = (salesMap[item.product_id] || 0) + item.quantity;
+              });
+            }
+          });
+        }
+
+        // 4. Map Products with Sales Data
+        if (dbProducts) {
+          const mappedProducts: Product[] = dbProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || '',
+            priceInPaise: Math.round(p.price * 100),
+            displayPrice: formatPriceINR(Math.round(p.price * 100)),
+            category: p.category || 'other',
+            subcategory: p.subcategory,
+            stock: p.stock,
+            images: p.images || [],
+            featured: p.featured || false,
+            costPriceInPaise: p.cost_price ? Math.round(p.cost_price * 100) : 0,
+            createdAt: p.created_at,
+            updatedAt: p.updated_at,
+            sales: salesMap[p.id] || 0
+          }));
+          setProducts(mappedProducts);
+        }
+
+        // 5. Map Orders
         if (fullOrders) {
           const mappedOrders: Order[] = fullOrders.map((o: any) => ({
             id: o.id,
             items: o.order_items.map((item: any) => {
-              // We need the full product details for the UI.
-              // Mapping logic is complex here because we only have product_id.
-              // We find the product in our fetched 'mappedProducts' list (variable scope issue? No, we have dbProducts)
               const prod = dbProducts?.find(p => p.id === item.product_id);
               const fallbackProd: Product = {
                 id: item.product_id,
@@ -217,12 +215,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             totalInPaise: Math.round(o.total_amount * 100),
             displayTotal: formatPriceINR(Math.round(o.total_amount * 100)),
             status: o.status as any,
-            paymentMethod: 'upi', // Default or need column
+            paymentMethod: 'upi',
             paymentStatus: o.payment_status as any,
             transactionId: o.transaction_id,
-            customerInfo: o.customer_info, // JSONB maps directly
+            customerInfo: o.customer_info,
             createdAt: o.created_at,
-            updatedAt: o.created_at // fallback
+            updatedAt: o.created_at
           }));
           setOrders(mappedOrders);
         }
@@ -445,6 +443,18 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       for (const item of orderData.items) {
         const newStock = Math.max(0, item.product.stock - item.quantity);
         await supabase.from('products').update({ stock: newStock }).eq('id', item.product.id);
+
+        // Optimistically update local product state (Stock and Sales)
+        setProducts(prev => prev.map(p => {
+          if (p.id === item.product.id) {
+            return {
+              ...p,
+              stock: newStock,
+              sales: (p.sales || 0) + item.quantity
+            };
+          }
+          return p;
+        }));
       }
 
       clearCart();

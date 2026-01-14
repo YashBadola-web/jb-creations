@@ -1,10 +1,41 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, CreditCard, Mail, Phone, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from "@/hooks/use-toast";
 
 const Footer: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const { toast } = useToast();
+
+  const handleSubscribe = () => {
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "Please enter your email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Subscribed!",
+      description: "Thank you for subscribing to our newsletter.",
+    });
+    setEmail('');
+  };
   return (
     <footer className="bg-[#F9F9F9] text-[#333333] font-body border-t border-gray-200 mt-auto">
       {/* Newsletter Section */}
@@ -19,8 +50,13 @@ const Footer: React.FC = () => {
               type="email"
               placeholder="Your email address"
               className="bg-white border-gray-300 focus-visible:ring-primary h-12"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-            <Button className="font-bold h-12 px-8 tracking-wider bg-black text-white hover:bg-gray-800">
+            <Button
+              className="font-bold h-12 px-8 tracking-wider bg-black text-white hover:bg-gray-800"
+              onClick={handleSubscribe}
+            >
               SUBSCRIBE
             </Button>
           </div>

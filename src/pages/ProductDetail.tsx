@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, ShoppingBag, Heart } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, ShoppingBag, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '@/context/StoreContext';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,38 @@ const ProductDetail: React.FC = () => {
   const [sizeValue, setSizeValue] = useState('');
   const [sizeUnit, setSizeUnit] = useState<'cm' | 'inch'>('cm');
 
+  /* State for Image Gallery */
+  const [selectedImage, setSelectedImage] = useState<string>('');
+
   // Scroll to top when product ID changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
 
   const product = products.find((p) => p.id === id);
+
+  // Update selected image when product is found or changes
+  useEffect(() => {
+    if (product && product.images.length > 0) {
+      setSelectedImage(product.images[0]);
+    }
+  }, [product]);
+
+  // Image Navigation Logic
+  const nextImage = () => {
+    if (!product || !product.images) return;
+    const currentIndex = product.images.indexOf(selectedImage);
+    const nextIndex = (currentIndex + 1) % product.images.length;
+    setSelectedImage(product.images[nextIndex]);
+  };
+
+  const prevImage = () => {
+    if (!product || !product.images) return;
+    const currentIndex = product.images.indexOf(selectedImage);
+    const prevIndex = (currentIndex - 1 + product.images.length) % product.images.length;
+    setSelectedImage(product.images[prevIndex]);
+  };
+
   const relatedProducts = products
     .filter((p) => p.category === product?.category && p.id !== id)
     .slice(0, 4);
@@ -93,19 +119,62 @@ const ProductDetail: React.FC = () => {
         </Link>
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Image */}
+          {/* Image Gallery */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="rounded-2xl overflow-hidden bg-muted aspect-square">
+            {/* Main Image */}
+            <div className="relative rounded-2xl overflow-hidden bg-muted aspect-square mb-4 border border-border group">
               <img
-                src={product.images[0]}
+                src={selectedImage}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
+
+              {/* Navigation Arrows */}
+              {product.images.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-foreground p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-foreground p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
             </div>
+
+            {/* Thumbnails */}
+            {product.images.length > 1 && (
+              <div className="grid grid-cols-4 gap-3">
+                {product.images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImage(img)}
+                    className={`relative rounded-lg overflow-hidden aspect-square border-2 transition-all ${selectedImage === img
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'border-transparent hover:border-muted-foreground/50'
+                      }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} view ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           {/* Details */}
